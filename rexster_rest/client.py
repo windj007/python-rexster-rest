@@ -1,3 +1,4 @@
+import os, glob
 from pyarc import ClientBase
 from rexster_rest.query import Q, format_typed_value
 
@@ -24,6 +25,9 @@ class Urls:
     KEYS_E = KEYS + '/edge'
     KEY_V = KEYS_V + '/{key}'
     KEY_E = KEYS_E + '/{key}'
+    GREMLIN_G = GRAPH + '/tp/gremlin'
+    GREMLIN_V = VERTEX + '/tp/gremlin'
+    GREMLIN_E = EDGE + '/tp/gremlin'
 
 
 class Dir:
@@ -49,10 +53,12 @@ class RexsterClient(ClientBase):
         super(RexsterClient, self).__init__(base_url,
                                             default_url_args = { 'graph' : graph },
                                             async = async)
+        self.scripts = {}
+        self.refresh_scripts(os.path.join(os.path.dirname(__file__), 'scripts'))
 
     ################################ GET operations ###########################
     def vertices(self, key = None, value = None):
-        args = { key : format_typed_value(value) } if not key is None else {}
+        args = { 'key' : key, 'value' : format_typed_value(value) } if not key is None else {}
         return self.get(Urls.VERTICES, query_args = args)
 
     def vertex(self, _id):
@@ -68,7 +74,7 @@ class RexsterClient(ClientBase):
         return self._neighbor_impl(Urls.INCIDENT_IDS, _id, direction, *query_args, **query_kwargs)
 
     def edges(self, key = None, value = None):
-        args = { key : format_typed_value(value) } if not key is None else {}
+        args = { 'key' : key, 'value' : format_typed_value(value) } if not key is None else {}
         return self.get(Urls.EDGES, query_args = args)
 
     def edge(self, _id):
@@ -184,6 +190,61 @@ class RexsterClient(ClientBase):
                                          'key' : key,
                                          'value' : format_typed_value(value),
                                          'class' : 'vertex' })
+
+    ############################### Scripts ###########################
+    def refresh_scripts(self, dirname):
+        for f in glob.glob(os.path.join(dirname, "*.groovy")):
+            self.load_script(f)
+
+    def load_script(self, filename):
+        if not os.path.isfile(filename):
+            return
+        script_name = os.path.splitext(os.path.basename(filename))[0]
+        with open(filename, 'r') as f:
+            self.scripts[script_name] = f.read()
+
+    def run_script_on_graph(self, script_code_or_name, **params):
+        return self.post(Urls.GREMLIN_G, payload = {
+                                                    "params" : params,
+                                                    "script" : self.scripts.get(script_code_or_name,
+                                                                                script_code_or_name)
+                                                    })
+
+    def run_script_on_vertex(self, script_code_or_name, vertex_id, **params):
+        return self.post(Urls.GREMLIN_V,
+                         url_args = { 'vertex_id' : vertex_id },
+                         payload = {
+                                    "params" : params,
+                                    "script" : self.scripts.get(script_code_or_name,
+                                                                script_code_or_name)
+                                    })
+
+    def run_script_on_edge(self, script_code_or_name, edge_id, **params):
+        return self.post(Urls.GREMLIN_E,
+                         url_args = { 'edge_id' : edge_id },
+                         payload = {
+                                    "params" : params,
+                                    "script" : self.scripts.get(script_code_or_name,
+                                                                script_code_or_name)
+                                    })
+
+    def lookup_vertex(self, *query_args, **query_kwargs):
+        q_str = Q(*query_args, **query_kwargs).build_gremlin()
+        if q_str:
+            q_str = 'g.V.%s.toList()' % q_str
+        return self.run_script_on_graph(q_str)
+
+    def get_unique_vertex(self, *query_args, **query_kwargs):
+        res = self.lookup_vertex(*query_args, **query_kwargs)
+        if len(res) > 0:
+            return res[0]
+        return None
+
+    def lookup_edge(self, *query_args, **query_kwargs):
+        q_str = Q(*query_args, **query_kwargs).build_gremlin()
+        if q_str:
+            q_str = 'g.E.%s.toList()' % q_str
+        return self.run_script_on_graph(q_str)
 
     ############################## Overrides ##########################
     def do_req(self, *args, **kwargs):

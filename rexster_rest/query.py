@@ -48,22 +48,29 @@ class Cmp:
 
 
 _COMPARISONS = (Cmp.LT, Cmp.LTE, Cmp.EQ, Cmp.NE, Cmp.GTE, Cmp.GT)
-
+_GREMLIN_COMPARISONS = {
+                        Cmp.LT : 'T.lt',
+                        Cmp.LTE : 'T.lte',
+                        Cmp.EQ : 'T.eq',
+                        Cmp.NE : 'T.neq',
+                        Cmp.GTE : 'T.gte',
+                        Cmp.GT : 'T.gt'
+                        }
 
 class _Q(object):
-    def __init__(self, _skip = None, _take = None, _label = None, _properties = None, **kwargs):
+    def __init__(self, _skip = None, _take = None, _label = None, _properties = [], **kwargs):
         self._skip = _skip
         self._take = _take
         self._label = _label
         self._properties = _properties
-        if not self._properties is None:
+        if not self._properties:
             self._properties = [(k, Cmp.EQ, v) for k, v in kwargs.viewitems()]
 
     def __and__(self, other):
         return _Q(other._skip if self._skip is None else self._skip,
                   other._take if self._take is None else self._take,
                   other._label if self._label is None else self._label,
-                  self._properties + other.properties)
+                  self._properties + other._properties)
 
     def build(self):
         result = {}
@@ -76,8 +83,18 @@ class _Q(object):
         if len(self._properties) > 0:
             result[_KW.PROPERTIES] = _properties_to_string(self._properties)
 
+    def build_gremlin(self):
+        res = '.'.join('has("%s",%s,%r)' % (k, _GREMLIN_COMPARISONS[comparison], v)
+                       for k, comparison, v in self._properties)
+        if not self._label is None:
+            res = '.'.join(['has("label", "%s")' % self._label, res])
+        if not (self._skip is None and self._take is None):
+            start = self._skip if not self._skip is None else 0
+            end = (start + self._take - 1) if not self._take is None else -1
+            res += '[%d..%d]' % (start, end)
+        return res
 
 def Q(*args, **kwargs):
-    if len(args) == 1 and isinstance(args[1], _Q):
-        return args[1]
+    if len(args) == 1 and isinstance(args[0], _Q):
+        return args[0]
     return _Q(*args, **kwargs)
