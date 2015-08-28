@@ -49,12 +49,12 @@ class Cmp:
 
 _COMPARISONS = (Cmp.LT, Cmp.LTE, Cmp.EQ, Cmp.NE, Cmp.GTE, Cmp.GT)
 _GREMLIN_COMPARISONS = {
-                        Cmp.LT : 'T.lt',
-                        Cmp.LTE : 'T.lte',
-                        Cmp.EQ : 'T.eq',
-                        Cmp.NE : 'T.neq',
-                        Cmp.GTE : 'T.gte',
-                        Cmp.GT : 'T.gt'
+                        Cmp.LT : 'Compare.LESS_THAN',
+                        Cmp.LTE : 'Compare.LESS_THAN_EQUAL',
+                        Cmp.EQ : 'Compare.EQUAL',
+                        Cmp.NE : 'Compare.NOT_EQUAL',
+                        Cmp.GTE : 'Compare.GREATER_THAN_EQUAL',
+                        Cmp.GT : 'Compare.GREATER_THAN'
                         }
 
 class _Q(object):
@@ -82,6 +82,7 @@ class _Q(object):
             result[_KW.LABEL] = self._label
         if len(self._properties) > 0:
             result[_KW.PROPERTIES] = _properties_to_string(self._properties)
+        return result
 
     def build_gremlin(self):
         res = '.'.join('has("%s",%s,%r)' % (k, _GREMLIN_COMPARISONS[comparison], v)
