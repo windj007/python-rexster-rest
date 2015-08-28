@@ -48,6 +48,16 @@ class _ItemGetter(object):
         return self.base_future.get().get(self.attrib, self.default)
 
 
+class _FirstGetter(object):
+    def __init__(self, impl):
+        self.impl = impl
+    def get(self):
+        res = self.impl.get()
+        if len(res) > 0:
+            return res[0]
+        return None
+
+
 class RexsterClient(ClientBase):
     def __init__(self, base_url, graph, async = False):
         super(RexsterClient, self).__init__(base_url,
@@ -231,20 +241,24 @@ class RexsterClient(ClientBase):
     def lookup_vertex(self, *query_args, **query_kwargs):
         q_str = Q(*query_args, **query_kwargs).build_gremlin()
         if q_str:
-            q_str = 'g.V.%s.toList()' % q_str
+            q_str = 'g.query().%s.vertices()' % q_str
         return self.run_script_on_graph(q_str)
 
     def get_unique_vertex(self, *query_args, **query_kwargs):
-        res = self.lookup_vertex(*query_args, **query_kwargs)
-        if len(res) > 0:
-            return res[0]
-        return None
+        return _FirstGetter(self.lookup_vertex(*query_args, **query_kwargs))
 
     def lookup_edge(self, *query_args, **query_kwargs):
         q_str = Q(*query_args, **query_kwargs).build_gremlin()
         if q_str:
             q_str = 'g.E.%s.toList()' % q_str
         return self.run_script_on_graph(q_str)
+
+    def upsert_vertex_custom_id(self, id_prop, id_value, label = None, **props):
+        return self.run_script_on_graph('upsert_vertex',
+                                        id_prop = id_prop,
+                                        id_value = id_value,
+                                        label = label,
+                                        properties = props)
 
     ############################## Overrides ##########################
     def do_req(self, *args, **kwargs):
