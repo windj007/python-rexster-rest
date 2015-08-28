@@ -13,7 +13,8 @@ setup(
     license = "BSD",
     keywords = "rest client Rexster",
     url = "http://packages.python.org/rexster-rest",
-    packages=['rexster_rest'],
+    packages=['rexster_rest', 'rexster_rest.tests'],
+    package_data={'rexster_rest': ['scripts/*.groovy']},
     long_description=read('README.md'),
     classifiers=[
         "Development Status :: 3 - Alpha",
