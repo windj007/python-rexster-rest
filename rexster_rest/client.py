@@ -16,7 +16,7 @@ class Urls:
     INCIDENT_IDS = INCIDENT + 'Ids'
     ADJACENT_E = INCIDENT + 'E'
     EDGES = GRAPH + '/edges'
-    EDGE = VERTICES + '/{edge_id}'
+    EDGE = EDGES + '/{edge_id}'
     INDICES =  GRAPH + '/indices'
     INDEX = INDICES + '/{index_id}'
     INDEX_CNT = INDEX + '/count'
@@ -61,6 +61,7 @@ class _FirstGetter(object):
 class RexsterClient(ClientBase):
     def __init__(self, base_url, graph, async = False):
         super(RexsterClient, self).__init__(base_url,
+                                            add_headers = { 'Content-Type' : 'application/json; charset=utf-8' },
                                             default_url_args = { 'graph' : graph },
                                             async = async)
         self.scripts = {}
@@ -259,6 +260,12 @@ class RexsterClient(ClientBase):
                                         id_value = id_value,
                                         label = label,
                                         properties = props)
+
+    def delete_vertices(self, *query_args, **query_kwargs):
+        q_str = Q(*query_args, **query_kwargs).build_gremlin()
+        if q_str:
+            q_str = 'g.query().%s.vertices().each { g.removeVertex(it) } ; g.commit()' % q_str
+        return self.run_script_on_graph(q_str)
 
     ############################## Overrides ##########################
     def do_req(self, *args, **kwargs):
