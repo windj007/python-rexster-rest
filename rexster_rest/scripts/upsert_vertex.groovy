@@ -7,7 +7,7 @@ else
 if (vs.count() > 0)
 	v = vs.get(0);
 else {
-	if (label)
+	if (label != null)
 		v = g.addVertexWithLabel(label);
 	else
 		v = g.addVertex();
